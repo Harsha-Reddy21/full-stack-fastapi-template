@@ -4,7 +4,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.core.security import get_password_hash, verify_password
-from app.models import Item, ItemCreate, User, UserCreate, UserUpdate
+from app.models import Item, ItemCreate, Note, NoteCreate, NoteUpdate, User, UserCreate, UserUpdate
 
 
 def create_user(*, session: Session, user_create: UserCreate) -> User:
@@ -52,3 +52,43 @@ def create_item(*, session: Session, item_in: ItemCreate, owner_id: uuid.UUID) -
     session.commit()
     session.refresh(db_item)
     return db_item
+
+
+# Note CRUD functions
+def create_note(*, session: Session, note_in: NoteCreate, owner_id: uuid.UUID) -> Note:
+    db_note = Note.model_validate(note_in, update={"owner_id": owner_id})
+    session.add(db_note)
+    session.commit()
+    session.refresh(db_note)
+    return db_note
+
+
+def get_note(*, session: Session, note_id: uuid.UUID) -> Note | None:
+    statement = select(Note).where(Note.id == note_id)
+    return session.exec(statement).first()
+
+
+def get_notes(
+    *, session: Session, owner_id: uuid.UUID, skip: int = 0, limit: int = 100
+) -> list[Note]:
+    statement = select(Note).where(Note.owner_id == owner_id).offset(skip).limit(limit)
+    return session.exec(statement).all()
+
+
+def update_note(
+    *, session: Session, db_note: Note, note_in: NoteUpdate
+) -> Note:
+    note_data = note_in.model_dump(exclude_unset=True)
+    db_note.sqlmodel_update(note_data)
+    session.add(db_note)
+    session.commit()
+    session.refresh(db_note)
+    return db_note
+
+
+def delete_note(*, session: Session, note_id: uuid.UUID) -> Note | None:
+    note = get_note(session=session, note_id=note_id)
+    if note:
+        session.delete(note)
+        session.commit()
+    return note
